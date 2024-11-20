@@ -9,32 +9,32 @@ rng(1);
 
 %% Create DQN Agent
 % Define the neural network architecture
-nodeNum1 = 64;  % First hidden layer nodes
-nodeNum2 = 32;  % Second hidden layer nodes
+nodeNum1 = 64;
+nodeNum2 = 32;
 
 net = [
-   featureInputLayer(obsInfo.Dimension(1), 'Normalization', 'none', 'Name', 'state')
-   fullyConnectedLayer(nodeNum1, 'Name', 'fc1')  
-   batchNormalizationLayer('Name', 'bn1')
-   reluLayer('Name', 'relu1')
-   fullyConnectedLayer(nodeNum2, 'Name', 'fc2')   
-   reluLayer('Name', 'relu2')
-   fullyConnectedLayer(length(actInfo.Elements), 'Name', 'fc_out')
-   ];
+  featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
+  fullyConnectedLayer(nodeNum1, 'Name', 'fc1')  
+  batchNormalizationLayer('Name', 'bn1')
+  reluLayer('Name', 'relu1')
+  fullyConnectedLayer(nodeNum2, 'Name', 'fc2')   
+  reluLayer('Name', 'relu2')
+  fullyConnectedLayer(5, 'Name', 'fc_out')
+  ];
 
 net = dlnetwork(net);
 
 % Hyperparameters
 numEpisodes = 1000;
 maxStepsPerEpisode = 500;
-gamma = 0.99; % Discout Factor
-epsilon = 1; % Exploration Initial Value
-epsilonDecay = 0.99;
+gamma = 0.99;  % Discout Factor
+epsilon = 1;  % Exploration Initial Value
+epsilonDecay = 0.997;
 minEpsilon = 0.01;
-initialLearningRate = 1e-3;
+initialLearningRate = 1e-4;
 
 % Experience Replay Memory Initialize
-bufferSize =
+bufferSize = 10000;
 replayBuffer = zeros(bufferSize, 5);  % [state, action, reward, next_state, done]
 bufferCounter = 1;
 
@@ -50,9 +50,9 @@ targetNet = updateTargetNet(net);
 
 % 학습 진행 상황 모니터링 설정
 monitor = trainingProgressMonitor( ...
-    Metrics="EpisodeReward", ...
-    Info="Episode", ...
-    XLabel="EpisodeNumber");
+   Metrics="EpisodeReward", ...
+   Info="Episode", ...
+   XLabel="EpisodeNumber");
 
 %% DQN 학습
 updateIteration = 1;
@@ -64,101 +64,100 @@ targetPdr = 0.85;
 successReward = 10;
 failureReward = 0;
 for episode = 1:numEpisodes
-    totalReward = 0;
-    
-    for step_i = 1:maxStepsPerEpisode
-        dataIdx = randsample(dataIdxRange, 1);
+   totalReward = 0;
+   
+   for step_i = 1:maxStepsPerEpisode
+       dataIdx = dataIdxRange(randi(length(dataIdxRange)));
 
-        state = unique(replayBuffer2D.state(:, dataIdx));
-        nextState = state;
+       state = unique(replayBuffer2D.state(:, dataIdx));
+       nextState = state;
 
-        % epsilon-greedy 정책에 따라 행동 선택
-        if rand < epsilon
-            actionIdx = randi([1, length(actArray)]);
-        else
-            dlState = dlarray(state, 'CB'); % 'CB' 차원 태그 사용
-            qValues = predict(net, dlState);
-            [~, actionIdx] = 
-        end
-        
-        % 행동을 올바른 값으로 매핑
-        action = actArray(actionIdx);
-        
-        % Reward Decision
-        pdrArray = replayBuffer2D.reward(:, dataIdx);
-        rewardArray = pdrArray - targetPdr;
-        if length(rewardArray(rewardArray >= 0)) == length(actArray)
-            reward = 
-        else
-            reward = 
-        end
+       % epsilon-greedy 정책에 따라 행동 선택
+       if rand < epsilon
+           actionIdx = randi([1, length(actArray)]);
+       else
+           dlState = dlarray(state, 'CB'); % 'CB' 차원 태그 사용
+           qValues = predict(net, dlState);
+           [~, actionIdx] = max(extractdata(qValues));
+       end
+       
+       % 행동을 올바른 값으로 매핑
+       action = actArray(actionIdx);
+       
+       % Reward Decision
+       pdrArray = replayBuffer2D.reward(:, dataIdx);
+       rewardArray = pdrArray - targetPdr;
+       if length(rewardArray(rewardArray >= 0)) == length(actArray)
+           reward = successReward;
+       else
+           reward = failureReward;
+       end
 
-        totalReward = totalReward + reward;
-        
-        isDone = 1;
+       totalReward = totalReward + reward;
+       
+       isDone = 1;
 
-        % 경험 저장
-        experience = [state', actionIdx, reward, nextState', isDone];
-        if bufferCounter <= bufferSize
-            replayBuffer(bufferCounter, :) = experience;
-        else
-            idx = mod(bufferCounter - 1, bufferSize) + 1;
-            replayBuffer(idx, :) = experience;
-        end
-        bufferCounter = bufferCounter + 1;
-        
-        state = nextState;
-        
-        % 경험 재생 메모리에서 미니배치 샘플링
-        if bufferCounter > 256
-            batchIndices = randi(min(bufferCounter-1, bufferSize), [256, 1]);
-            batch = replayBuffer(batchIndices, :);
-            
-            % 배치에서 데이터 추출
-            states = 
-            actions = 
-            rewards = 
-            nextStates = 
-            dones = 
+       % 경험 저장
+       experience = [state', actionIdx, reward, nextState', isDone];
+       if bufferCounter <= bufferSize
+           replayBuffer(bufferCounter, :) = experience;
+       else
+           idx = mod(bufferCounter - 1, bufferSize) + 1;
+           replayBuffer(idx, :) = experience;
+       end
+       bufferCounter = bufferCounter + 1;
+       
+       state = nextState;
+       
+       % 경험 재생 메모리에서 미니배치 샘플링
+       if bufferCounter > 256
+           batchIndices = randi(min(bufferCounter-1, bufferSize), [256, 1]);
+           batch = replayBuffer(batchIndices, :);
+           
+           % 배치에서 데이터 추출
+           states = batch(:, 1);
+           actions = batch(:, 2);
+           rewards = batch(:, 3);
+           nextStates = batch(:, 4);
+           dones = batch(:, 5);
 
-            % 타깃 Q 값 계산
-            dlNextStates = dlarray(nextStates', 'CB'); % 'CB' 차원 태그 사용
-            nextQValues = predict(targetNet, dlNextStates);
-            maxNextQValues = 
-            targetQValues = 
-            
-            % Q 값 예측 및 손실 계산
-            dlStates = dlarray(states', 'CB'); % 'CB' 차원 태그 사용
-            qValues = predict(net, dlStates);
-            indices =
-            qValues =
-            
-            
-            % 경사 하강법으로 네트워크 업데이트
-            [gradients, net] = dlfeval(@modelGradients, net, dlStates, targetQValues, indices);
-            gradients = dlupdate(@(g) min(max(g, -gradThreshold), gradThreshold), gradients);  % 그래디언트 클리핑
-            [net, movingAvg, movingAvgSq] = adamupdate(net, gradients, movingAvg, movingAvgSq, updateIteration, learningRate , beta1, beta2, epsilonOpt);
-            updateIteration = updateIteration + 1;
-            % epsilon 감소
-            epsilon = ;
-        end
-    end
-     % 학습 진행 모니터링 업데이트
-        recordMetrics(monitor,episode, ...
-            EpisodeReward=totalReward);
-    
-        updateInfo(monitor,Episode=episode);
-        monitor.Progress = 100*episode/numEpisodes;
-    
-    
-    % 타깃 네트워크 업데이트
-    if mod(episode, ) == 0  % 타깃 네트워크 업데이트 주기 증가
-        targetNet = updateTargetNet(net);
-    end
-    
-    % 학습 진행 상황 출력
-    fprintf('Episode %d, Total Reward: %.2f, Epsilon: %.2f\n', episode, totalReward, epsilon);
-    save(['optimalNetworkTargetPdr',num2str(targetPdr*100),'.mat'], 'net')
+           % 타깃 Q 값 계산
+           dlNextStates = dlarray(nextStates', 'CB'); % 'CB' 차원 태그 사용
+           nextQValues = predict(targetNet, dlNextStates);
+           maxNextQValues = max(extractdata(nextQValues));
+           targetQValues = rewards + gamma * maxNextQValues .* (1 - dones);
+           
+           % Q 값 예측 및 손실 계산
+           dlStates = dlarray(states', 'CB'); % 'CB' 차원 태그 사용
+           qValues = predict(net, dlStates);
+           indices = sub2ind(size(qValues), actions, (1:256)');
+           qValues = qValues(indices);
+           
+           % 경사 하강법으로 네트워크 업데이트
+           [gradients, net] = dlfeval(@modelGradients, net, dlStates, targetQValues, indices);
+           gradients = dlupdate(@(g) min(max(g, -gradThreshold), gradThreshold), gradients);  % 그래디언트 클리핑
+           [net, movingAvg, movingAvgSq] = adamupdate(net, gradients, movingAvg, movingAvgSq, updateIteration, learningRate , beta1, beta2, epsilonOpt);
+           updateIteration = updateIteration + 1;
+           % epsilon 감소
+           epsilon = max(minEpsilon, epsilon * epsilonDecay);
+       end
+   end
+    % 학습 진행 모니터링 업데이트
+       recordMetrics(monitor,episode, ...
+           EpisodeReward=totalReward);
+   
+       updateInfo(monitor,Episode=episode);
+       monitor.Progress = 100*episode/numEpisodes;
+   
+   
+   % 타깃 네트워크 업데이트
+   if mod(episode, 10) == 0  % 타깃 네트워크 업데이트 주기 증가
+       targetNet = updateTargetNet(net);
+   end
+   
+   % 학습 진행 상황 출력
+   fprintf('Episode %d, Total Reward: %.2f, Epsilon: %.2f\n', episode, totalReward, epsilon);
+   save(['optimalNetworkTargetPdr',num2str(targetPdr*100),'.mat'], 'net')
 end
 % save('net.mat','net');
 % save('env.mat','env');
@@ -166,14 +165,24 @@ end
 
 
 %% 모형 경사 계산 함수
+% function [gradients, dlnet] = modelGradients(dlnet, dlStates, targetQValues, indices)
+%    qValues = predict(dlnet, dlStates);
+%    qValues = qValues(indices);
+%    targetQValues = dlarray(targetQValues);
+%    qValues = dlarray(qValues);
+%    loss = sum((targetQValues - qValues).^2) / numel(targetQValues);
+%    gradients = dlgradient(loss, dlnet.Learnables);
+% end
+
 function [gradients, dlnet] = modelGradients(dlnet, dlStates, targetQValues, indices)
     qValues = predict(dlnet, dlStates);
-    qValues = qValues(indices);
-    loss = mean((targetQValues - qValues).^2);
+    predictedQ = dlarray(qValues(indices), 'CB');
+    targetQ = dlarray(targetQValues, 'CB');
+    loss = mean(sum((targetQ - predictedQ).^2));
     gradients = dlgradient(loss, dlnet.Learnables);
 end
 
 % 네트워크 복사 함수
 function targetNet = updateTargetNet(dlnet)
-    targetNet = dlnet;
+   targetNet = dlnet;
 end

@@ -13,13 +13,13 @@ nodeNum1 = 64;  % First hidden layer nodes
 nodeNum2 = 32;  % Second hidden layer nodes
 
 net = [
-   featureInputLayer(obsInfo.Dimension(1), 'Normalization', 'none', 'Name', 'state')
+   featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
    fullyConnectedLayer(nodeNum1, 'Name', 'fc1')  
    batchNormalizationLayer('Name', 'bn1')
    reluLayer('Name', 'relu1')
    fullyConnectedLayer(nodeNum2, 'Name', 'fc2')   
    reluLayer('Name', 'relu2')
-   fullyConnectedLayer(length(actInfo.Elements), 'Name', 'fc_out')
+   fullyConnectedLayer(5, 'Name', 'fc_out') % 5 actions [100,200,300,400,500]ms
    ];
 
 net = dlnetwork(net);
@@ -29,12 +29,12 @@ numEpisodes = 1000;
 maxStepsPerEpisode = 500;
 gamma = 0.99; % Discout Factor
 epsilon = 1; % Exploration Initial Value
-epsilonDecay = 0.99;
+epsilonDecay = 0.997;
 minEpsilon = 0.01;
-initialLearningRate = 1e-3;
+initialLearningRate = 1e-4;
 
 % Experience Replay Memory Initialize
-bufferSize =
+bufferSize = 10000;
 replayBuffer = zeros(bufferSize, 5);  % [state, action, reward, next_state, done]
 bufferCounter = 1;
 
@@ -67,7 +67,7 @@ for episode = 1:numEpisodes
     totalReward = 0;
     
     for step_i = 1:maxStepsPerEpisode
-        dataIdx = randsample(dataIdxRange, 1);
+        dataIdx = dataIdxRange(randi(length(dataIdxRange)));
 
         state = unique(replayBuffer2D.state(:, dataIdx));
         nextState = state;
@@ -78,7 +78,7 @@ for episode = 1:numEpisodes
         else
             dlState = dlarray(state, 'CB'); % 'CB' 차원 태그 사용
             qValues = predict(net, dlState);
-            [~, actionIdx] = 
+            [~, actionIdx] = max(extractdata(qValues));
         end
         
         % 행동을 올바른 값으로 매핑
@@ -88,9 +88,9 @@ for episode = 1:numEpisodes
         pdrArray = replayBuffer2D.reward(:, dataIdx);
         rewardArray = pdrArray - targetPdr;
         if length(rewardArray(rewardArray >= 0)) == length(actArray)
-            reward = 
+            reward = successReward;
         else
-            reward = 
+            reward = failureReward;
         end
 
         totalReward = totalReward + reward;
@@ -115,23 +115,24 @@ for episode = 1:numEpisodes
             batch = replayBuffer(batchIndices, :);
             
             % 배치에서 데이터 추출
-            states = 
-            actions = 
-            rewards = 
-            nextStates = 
-            dones = 
+            states = batch(:, 1);
+            actions = batch(:, 2);
+            rewards = batch(:, 3);
+            nextStates = batch(:, 4);
+            dones = batch(:, 5);
 
             % 타깃 Q 값 계산
             dlNextStates = dlarray(nextStates', 'CB'); % 'CB' 차원 태그 사용
             nextQValues = predict(targetNet, dlNextStates);
-            maxNextQValues = 
-            targetQValues = 
+            maxNextQValues = max(extractdata(nextQ ...
+                values));
+            targetQValues = rewards + gamma * maxNextQValues .* (1 - dones);
             
             % Q 값 예측 및 손실 계산
             dlStates = dlarray(states', 'CB'); % 'CB' 차원 태그 사용
             qValues = predict(net, dlStates);
-            indices =
-            qValues =
+            indices = sub2ind(size(qValues), actions, (1:256)');            
+            qValues = qValues(indices);
             
             
             % 경사 하강법으로 네트워크 업데이트
@@ -139,8 +140,9 @@ for episode = 1:numEpisodes
             gradients = dlupdate(@(g) min(max(g, -gradThreshold), gradThreshold), gradients);  % 그래디언트 클리핑
             [net, movingAvg, movingAvgSq] = adamupdate(net, gradients, movingAvg, movingAvgSq, updateIteration, learningRate , beta1, beta2, epsilonOpt);
             updateIteration = updateIteration + 1;
+
             % epsilon 감소
-            epsilon = ;
+            epsilon = max(minEpsilon, epsilon * epsilonDecay);
         end
     end
      % 학습 진행 모니터링 업데이트
@@ -152,7 +154,7 @@ for episode = 1:numEpisodes
     
     
     % 타깃 네트워크 업데이트
-    if mod(episode, ) == 0  % 타깃 네트워크 업데이트 주기 증가
+    if mod(episode, 10) == 0  % 타깃 네트워크 업데이트 주기 증가
         targetNet = updateTargetNet(net);
     end
     
