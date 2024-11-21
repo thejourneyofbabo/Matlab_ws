@@ -57,7 +57,8 @@ updateIteration = 1;
 learningRate = initialLearningRate;
 dataIdxRange = 1:length(replayBuffer2D.state);
 actArray = 1:5;
-targetPdr = 0.85;
+%targetPdr = 0.85;
+targetPdr = 0.90;
 successReward = 10;
 failureReward = 0;
 
