@@ -7,8 +7,8 @@ load('./replayBuffer.mat', "replayBuffer2D")
 rng(1);
 
 %% Create DQN Agent
-nodeNum1 = 64;
-nodeNum2 = 32;
+nodeNum1 = 128;
+nodeNum2 = 64;
 
 net = [
  featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
@@ -32,12 +32,12 @@ minEpsilon = 0.01;
 initialLearningRate = 1e-3;
 
 % Experience Replay
-bufferSize = 5000;
+bufferSize = 10000;
 batchSize = 128;
 replayBuffer = zeros(bufferSize, 5);
 bufferCounter = 1;
 
-% Optimizer variables
+% Initialize optimizer variables
 gradThreshold = 1.0;
 beta1 = 0.9;
 beta2 = 0.999;
@@ -58,8 +58,8 @@ learningRate = initialLearningRate;
 dataIdxRange = 1:length(replayBuffer2D.state);
 actArray = 1:5;
 targetPdr = 0.85;
-successReward = 10;
-failureReward = 0;
+successReward = 20;
+failureReward = -5;
 
 % Pre-allocate batch memory
 states_batch = zeros(1, batchSize);
@@ -88,10 +88,16 @@ for episode = 1:numEpisodes
       pdrArray = replayBuffer2D.reward(:, dataIdx);
       rewardArray = pdrArray - targetPdr;
       
+      % Enhanced reward design
       % if length(rewardArray(rewardArray >= 0)) == length(actArray)
-      %     reward = successReward;
+      %     if action == 1
+      %         reward = successReward;
+      %     else
+      %         reward = successReward/2;
+      %     end
       % else
-      %     reward = failureReward;
+      %     pdrDiff = abs(pdrArray(action) - targetPdr);
+      %     reward = -pdrDiff * 10;
       % end
       reward = failureReward;
 
@@ -111,8 +117,7 @@ for episode = 1:numEpisodes
       end
       bufferCounter = bufferCounter + 1;
       
-      state = nextState;
-      
+      % DDQN Training
       if bufferCounter > batchSize
           batchIndices = randi(min(bufferCounter-1, bufferSize), [batchSize, 1]);
           batch = replayBuffer(batchIndices, :);
@@ -124,18 +129,26 @@ for episode = 1:numEpisodes
           dones_batch(:) = batch(:, 5);
 
           dlNextStates = dlarray(nextStates_batch, 'CB');
-          nextQValues = predict(targetNet, dlNextStates);
-          maxNextQValues = max(extractdata(nextQValues));
-          targetQValues = rewards_batch + gamma * maxNextQValues .* (1 - dones_batch);
+          nextQValues = predict(net, dlNextStates);
+          [~, maxActions] = max(extractdata(nextQValues));
+          targetNextQValues = predict(targetNet, dlNextStates);
+          
+          maxNextQValues = zeros(size(maxActions));
+          for i = 1:length(maxActions)
+              maxNextQValues(i) = targetNextQValues(maxActions(i), i);
+          end
+          
+          targetQValues = rewards_batch + gamma * maxNextQValues' .* (1 - dones_batch);
           
           dlStates = dlarray(states_batch, 'CB');
           qValues = predict(net, dlStates);
           indices = sub2ind(size(qValues), actions_batch, (1:batchSize)');
           
           [gradients, net] = dlfeval(@modelGradients, net, dlStates, targetQValues, indices);
-          gradients = dlupdate(@(g) min(max(g, -gradThreshold), gradThreshold), gradients);
+          gradients = dlupdate(@(g) min(max(g, -1), 1), gradients);
           [net, movingAvg, movingAvgSq] = adamupdate(net, gradients, movingAvg, movingAvgSq, updateIteration, learningRate, beta1, beta2, epsilonOpt);
           updateIteration = updateIteration + 1;
+          
           epsilon = max(minEpsilon, epsilon * epsilonDecay);
       end
   end
@@ -144,7 +157,7 @@ for episode = 1:numEpisodes
   updateInfo(monitor, Episode=episode);
   monitor.Progress = 100*episode/numEpisodes;
   
-  if mod(episode, 10) == 0
+  if mod(episode, 5) == 0
       targetNet = updateTargetNet(net);
   end
   
@@ -152,6 +165,7 @@ for episode = 1:numEpisodes
   save(['optimalNetworkTargetPdr',num2str(targetPdr*100),'.mat'], 'net')
 end
 
+%% Helper Functions
 function [gradients, dlnet] = modelGradients(dlnet, dlStates, targetQValues, indices)
    qValues = predict(dlnet, dlStates);
    predictedQ = dlarray(qValues(indices), 'CB');
