@@ -3,10 +3,10 @@ clc
 % close all
 clear
 %% state mapping action
-% load('optimalNetworkTargetPdr85.mat', 'net')
-% targetPdr = 0.85;
-load('optimalNetworkTargetPdr90.mat', 'net')
-targetPdr = 0.9;
+load('optimalNetworkTargetPdr85.mat', 'net')
+targetPdr = 0.85;
+% load('optimalNetworkTargetPdr90.mat', 'net')
+% targetPdr = 0.9;
 
 load('./replayBuffer.mat', "replayBuffer2D")
 
