@@ -8,17 +8,22 @@ rng(1);
 
 %% Create DQN Agent
 nodeNum1 = 128; %64
-nodeNum2 = 64; %32
+nodeNum2 = 64;  %32
+nodeNum3 = 32;  %16
 
 net = [
- featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
- fullyConnectedLayer(nodeNum1, 'Name', 'fc1')  
- batchNormalizationLayer('Name', 'bn1')
- reluLayer('Name', 'relu1')
- fullyConnectedLayer(nodeNum2, 'Name', 'fc2')   
- reluLayer('Name', 'relu2')
- fullyConnectedLayer(5, 'Name', 'fc_out')
- ];
+    featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
+    fullyConnectedLayer(nodeNum1, 'Name', 'fc1')
+    batchNormalizationLayer('Name', 'bn1')
+    reluLayer('Name', 'relu1')
+    fullyConnectedLayer(nodeNum2, 'Name', 'fc2')
+    batchNormalizationLayer('Name', 'bn2')
+    reluLayer('Name', 'relu2')
+    fullyConnectedLayer(nodeNum3, 'Name', 'fc3')
+    batchNormalizationLayer('Name', 'bn3')
+    reluLayer('Name', 'relu3')
+    fullyConnectedLayer(5, 'Name', 'fc_out')
+];
 
 net = dlnetwork(net);
 

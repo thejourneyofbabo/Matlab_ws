@@ -23,7 +23,7 @@ net = [
 net = dlnetwork(net);
 
 % Hyperparameters
-numEpisodes = 1000;
+numEpisodes = 500;
 maxStepsPerEpisode = 200;
 gamma = 0.99;
 epsilon = 1;
@@ -58,7 +58,7 @@ learningRate = initialLearningRate;
 dataIdxRange = 1:length(replayBuffer2D.state);
 actArray = 1:5;
 targetPdr = 0.85;
-successReward = 20;
+successReward = 10;
 failureReward = -5;
 
 % Pre-allocate batch memory
