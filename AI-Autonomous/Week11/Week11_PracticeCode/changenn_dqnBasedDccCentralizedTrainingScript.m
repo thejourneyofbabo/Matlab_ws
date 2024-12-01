@@ -28,7 +28,7 @@ net = [
 net = dlnetwork(net);
 
 % Hyperparameters
-numEpisodes = 500;
+numEpisodes = 1000;
 maxStepsPerEpisode = 200;
 gamma = 0.99;
 epsilon = 1;
