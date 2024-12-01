@@ -3,10 +3,10 @@ clc
 % close all
 clear
 %% state mapping action
-load('optimalNetworkTargetPdr85.mat', 'net')
-targetPdr = 0.85;
-% load('optimalNetworkTargetPdr90.mat', 'net')
-% targetPdr = 0.9;
+% load('optimalNetworkTargetPdr85.mat', 'net')
+% targetPdr = 0.85;
+load('optimalNetworkTargetPdr90.mat', 'net')
+targetPdr = 0.9;
 
 load('./replayBuffer.mat', "replayBuffer2D")
 
@@ -107,3 +107,32 @@ end
 
 plotExecution.XData = rhoArray;
 plotExecution.YData = actionSelectPdrArray;
+
+
+%% MSE 계산
+% Target PDR 90%인 경우
+rho_range90 = 120:5:230;  % 평가구간
+target_pdr90 = 0.90;
+
+% 평가구간에 해당하는 인덱스 찾기
+eval_indices90 = find(rhoArray >= 120 & rhoArray <= 230);
+actual_pdr90 = actionSelectPdrArray(eval_indices90);
+
+% MSE 계산
+mse90 = mean((actual_pdr90 - target_pdr90).^2);
+
+% Target PDR 85%인 경우
+rho_range85 = 150:5:300;  % 평가구간
+target_pdr85 = 0.85;
+
+% 평가구간에 해당하는 인덱스 찾기
+eval_indices85 = find(rhoArray >= 150 & rhoArray <= 300);
+actual_pdr85 = actionSelectPdrArray(eval_indices85);
+
+% MSE 계산
+mse85 = mean((actual_pdr85 - target_pdr85).^2);
+
+% 결과 출력
+fprintf('\nMSE Analysis Results:\n');
+fprintf('MSE for Target PDR 85%% (rho=[150,300]): %.6f\n', mse85);
+fprintf('MSE for Target PDR 90%% (rho=[120,230]): %.6f\n', mse90);
