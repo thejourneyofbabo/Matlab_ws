@@ -11,7 +11,7 @@ nodeNum1 = 128; %64
 nodeNum2 = 64;  %32
 nodeNum3 = 32;  %16
 
-net = [
+net = [ % Three Layer
     featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
     fullyConnectedLayer(nodeNum1, 'Name', 'fc1')
     batchNormalizationLayer('Name', 'bn1')
@@ -24,6 +24,14 @@ net = [
     reluLayer('Name', 'relu3')
     fullyConnectedLayer(5, 'Name', 'fc_out')
 ];
+
+% net = [ % One Layer
+%     featureInputLayer(1, 'Normalization', 'none', 'Name', 'state')
+%     fullyConnectedLayer(nodeNum1, 'Name', 'fc1')
+%     batchNormalizationLayer('Name', 'bn1')
+%     reluLayer('Name', 'relu1')
+%     fullyConnectedLayer(5, 'Name', 'fc_out')
+% ];
 
 net = dlnetwork(net);
 
