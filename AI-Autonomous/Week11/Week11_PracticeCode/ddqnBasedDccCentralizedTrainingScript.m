@@ -59,7 +59,7 @@ dataIdxRange = 1:length(replayBuffer2D.state);
 actArray = 1:5;
 targetPdr = 0.85;
 successReward = 10;
-failureReward = -5;
+failureReward = 0;
 
 % Pre-allocate batch memory
 states_batch = zeros(1, batchSize);
